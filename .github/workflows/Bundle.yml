@@ -37,7 +37,6 @@ jobs:
           cmake --build .
           cp ${{ github.workspace }}/build/picostation_pico1.uf2 ${{ github.workspace }}/output/picostation_pico1.uf2
 
-          
       - name: Build PicoStation Pico2
         run: |
           cd ${{ github.workspace }}/build
@@ -45,6 +44,22 @@ jobs:
           cmake -DPICO_SDK_PATH=${{ github.workspace }}/pico-sdk -DPICOSTATION_VARIANT=picostation_pico2 .. 
           cmake --build .
           cp ${{ github.workspace }}/build/picostation_pico2.uf2 ${{ github.workspace }}/output/picostation_pico2.uf2
+
+      - name: Build PicoStation Plus Pico1
+        run: |
+          cd ${{ github.workspace }}/build
+          rm -fr ./*
+          cmake -DPICO_SDK_PATH=${{ github.workspace }}/pico-sdk -DPICOSTATION_VARIANT=picostation_plus_pico1 .. 
+          cmake --build .
+          cp ${{ github.workspace }}/build/picostation_plus_pico1.uf2 ${{ github.workspace }}/output/picostation_plus_pico1.uf2
+
+      - name: Build PicoStation Plus Pico2
+        run: |
+          cd ${{ github.workspace }}/build
+          rm -fr ./*
+          cmake -DPICO_SDK_PATH=${{ github.workspace }}/pico-sdk -DPICOSTATION_VARIANT=picostation_plus_pico2 .. 
+          cmake --build .
+          cp ${{ github.workspace }}/build/picostation_plus_pico2.uf2 ${{ github.workspace }}/output/picostation_plus_pico2.uf2
 
       - name: List Files
         run: ls ${{ github.workspace }}/build
@@ -63,4 +78,3 @@ jobs:
         with:
           files: |
             ${{ github.workspace }}/output/*.uf2
-
