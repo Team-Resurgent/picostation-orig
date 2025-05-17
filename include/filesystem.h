@@ -1,8 +1,12 @@
 #pragma once
 
 #include <stdint.h>
+#include <stddef.h>
 
-const size_t c_fileNameLength = 255;
+#include "global.h"
+#include "ff.h"
+
+const size_t c_fileNameLength = MAX_LENGTH;
 
 class DirectoryListing {
   public:
