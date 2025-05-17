@@ -26,6 +26,7 @@
 #include "pseudo_atomics.h"
 #include "subq.h"
 #include "values.h"
+#include "global.h"
 
 #if DEBUG_I2S
 #define DEBUG_PRINT(...) printf(__VA_ARGS__)
@@ -33,9 +34,7 @@
 #define DEBUG_PRINT(...) while (0)
 #endif
 
-// const size_t c_fileNameLength = 255;
-
-TCHAR target_Cues[255][c_fileNameLength];
+TCHAR target_Cues[MAX_CUES][c_fileNameLength];
 
 pseudoatomic<int> g_imageIndex;  // To-do: Implement a console side menu to select the cue file
 pseudoatomic<int> g_listingMode;
