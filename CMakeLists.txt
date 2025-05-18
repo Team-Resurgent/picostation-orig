@@ -14,6 +14,9 @@ endif()
 # ====================================================================================
 set(PICO_BOARD pico CACHE STRING "Board type")
 
+# Example override variant
+# set(PICOSTATION_VARIANT "picostation_plus_pico2")
+
 if(NOT DEFINED PICOSTATION_VARIANT)
     if(PICO_BOARD EQUAL pico2)
         set(PICOSTATION_VARIANT "picostation_pico2")
