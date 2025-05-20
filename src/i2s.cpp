@@ -66,34 +66,8 @@ constexpr std::array<uint16_t, 1176> picostation::I2S::generateScramblingLUT() {
     return cdScramblingLUT;
 }
 
-const unsigned int c_userDataSize = 2324;
-uint8_t directoryBuffer[2352] = {0};
-uint8_t filteredCues[2352] = {0};
-
-void parseLines(picostation::DirectoryListing::DirectoryDetails& directoryDetails, char *filteredCues, TCHAR lines[MAX_LINES][c_maxFilePathLength + 1], int& lineCount) {
-
-    lineCount = 0;
-    uint16_t currentLength = 0;
-    for (int i = 0; i < directoryDetails.fileEntryCount; i++) {
-
-        picostation::DirectoryListing::PathItem extension;
-        picostation::DirectoryListing::getExtension(directoryDetails.fileEntries[i].filePath, extension);
-        if (directoryDetails.fileEntries[i].isDirectory == 0 || strcasecmp(extension.path, ".cue") != 0)
-        {
-            continue;
-        }
-        if (currentLength + strlen(directoryDetails.fileEntries[i].filePath.path) + 1 > 2351) // allow for null term
-        {
-            break;
-        }
-        strcat(filteredCues, directoryDetails.fileEntries[i].filePath.path);
-        strcat(filteredCues, "\n");
-        strcpy(lines[lineCount], directoryDetails.fileEntries[i].filePath.path);
-        lines[lineCount][strlen(directoryDetails.fileEntries[i].filePath.path)] = '\0';
-        lineCount++;
-    }
-    printf("filteredCues!=\n %s\n", filteredCues);
-}
+// this need to be moved to diskimage (s_userdata)
+static uint8_t userData[c_cdSamplesBytes] = {0};
 
 int picostation::I2S::initDMA(const volatile void *read_addr, unsigned int transfer_count) {
     int channel = dma_claim_unused_channel(true);
@@ -127,7 +101,6 @@ int picostation::I2S::initDMA(const volatile void *read_addr, unsigned int trans
     int filesinDir = 0;
 
     g_imageIndex = 0;
-    g_listingMode = 0;
 
     int dmaChannel = initDMA(pioSamples[0], c_cdSamplesSize * 2);
 
@@ -149,14 +122,12 @@ int picostation::I2S::initDMA(const volatile void *read_addr, unsigned int trans
     unsigned cacheHitCount = 0;
 #endif
 
+    // this need to be moved to diskimage
     memset(target_Cues, 0, sizeof(target_Cues));
     memset(&directoryDetails, 0, sizeof(directoryDetails));
     picostation::DirectoryListing::PathItem rootPath = picostation::DirectoryListing::createPathItem("/");
     picostation::DirectoryListing::getDirectoryEntries(rootPath, "", 0,  directoryDetails);
     printf("Directorylisting Entry count: %i", directoryDetails.fileEntryCount);
-
-    int lineCount = 0;
-    parseLines(directoryDetails, (char *)filteredCues, target_Cues, lineCount);
 
     int firstboot = 1;
     while (true) {
@@ -208,41 +179,43 @@ int picostation::I2S::initDMA(const volatile void *read_addr, unsigned int trans
             startTime = time_us_64();
 #endif
 
-            // Load the next sector
-            // Sector cache lookup/update
-            int cache_hit = -1;
-            for (size_t i = 0; i < c_sectorCacheSize; i++) {
-                if (cachedSectors[i] == currentSector) {
-                    cache_hit = i;
-#if DEBUG_I2S
-                    cacheHitCount++;
-#endif
-                    break;
-                }
-            }
+            int16_t* sectorData = nullptr;
 
-            if (cache_hit == -1) {
-                g_discImage.readSector(cdSamples[roundRobinCacheIndex], currentSector - c_leadIn, s_dataLocation);
-                cachedSectors[roundRobinCacheIndex] = currentSector;
-                cache_hit = roundRobinCacheIndex;
-                roundRobinCacheIndex = (roundRobinCacheIndex + 1) % c_sectorCacheSize;
-            }
+            if ((currentSector - c_leadIn - c_preGap == 100) && g_fileListingState.Load() == FileListingStates::GETDIRECTORY) {
 
-            // Copy CD samples to PIO buffer
-            if ((currentSector - c_leadIn - c_preGap == 100) && g_listingMode.Load() == 1) {
-                g_listingMode = 0;
+                g_fileListingState = FileListingStates::IDLE;
 
-                g_discImage.buildSector(currentSector - c_leadIn, directoryBuffer, filteredCues);
+                memset(&directoryDetails, 0, sizeof(directoryDetails));
+
+                g_discImage.buildSector(currentSector - c_leadIn, userData, (uint8_t*)&directoryDetails, sizeof(directoryDetails));
                 printf("Sector 100 load\n");
-                printf("currentSector: %i\n", currentSector);
-                printf("c_leadin: %i\n", c_leadIn);
-                printf("c_preGap: %i\n", c_preGap);
-                printf("c_sectorCacheSize: %i\n", c_sectorCacheSize);
-                // printf("%.*s\n", 2324, (char*)(directoryBuffer + 24));
 
-                memcpy(&cdSamples[cache_hit], &directoryBuffer, 2352);
+                sectorData = reinterpret_cast<int16_t *>(userData);
+
+            } else {
+
+                // Load the next sector
+                // Sector cache lookup/update
+                int cache_hit = -1;
+                for (size_t i = 0; i < c_sectorCacheSize; i++) {
+                    if (cachedSectors[i] == currentSector) {
+                        cache_hit = i;
+    #if DEBUG_I2S
+                        cacheHitCount++;
+    #endif
+                        break;
+                    }
+                }
+
+                if (cache_hit == -1) {
+                    g_discImage.readSector(cdSamples[roundRobinCacheIndex], currentSector - c_leadIn, s_dataLocation);
+                    cachedSectors[roundRobinCacheIndex] = currentSector;
+                    cache_hit = roundRobinCacheIndex;
+                    roundRobinCacheIndex = (roundRobinCacheIndex + 1) % c_sectorCacheSize;
+                }
+
+                sectorData = reinterpret_cast<int16_t *>(cdSamples[cache_hit]);
             }
-            int16_t const *sectorData = reinterpret_cast<int16_t *>(cdSamples[cache_hit]);
 
             // Copy CD samples to PIO buffer
             for (size_t i = 0; i < c_cdSamplesSize * 2; i++) {

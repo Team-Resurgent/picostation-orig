@@ -84,13 +84,13 @@ bool DirectoryListing::getDirectoryEntries(const PathItem& filePath, const char*
         res = f_readdir(&dir, &nextEntry);
         bool hasNext = (res == FR_OK && nextEntry.fname[0] != '\0');
         while (true) {
-            if (directoryDetails.fileEntryCount == c_maxFileEntriesPerPage) {
+            if (directoryDetails.fileEntryCount == c_maxFileEntriesPerSector) {
                 break;
             }
             if (!(currentEntry.fattrib & AM_HID)) {
                 PathItem pathItem = createPathItem(currentEntry.fname);
                 if (pathContainsFilter(pathItem, filter)) {
-                    if ((filesProcessed / c_maxFileEntriesPerPage) >= page) {
+                    if ((filesProcessed / c_maxFileEntriesPerSector) >= page) {
                         directoryDetails.fileEntries[directoryDetails.fileEntryCount].isDirectory = currentEntry.fattrib & AM_DIR ? 1 : 0;
                         directoryDetails.fileEntries[directoryDetails.fileEntryCount].filePath = pathItem;
                         directoryDetails.fileEntryCount++;

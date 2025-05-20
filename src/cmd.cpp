@@ -20,7 +20,6 @@
 #endif
 
 extern pseudoatomic<int> g_imageIndex;
-extern pseudoatomic<int> g_listingMode;
 
 inline void picostation::MechCommand::audioControl(const uint32_t latched) {
     const uint32_t pct2_bit = (1 << 14);
@@ -133,7 +132,6 @@ inline void picostation::MechCommand::customCommand(const uint32_t latched) {
             g_fileListingState = FileListingStates::IDLE;
             break;
         case 0x1:
-            g_listingMode = 1;
             g_fileListingState = FileListingStates::GETDIRECTORY;
             break;
         case 0x2:

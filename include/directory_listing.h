@@ -25,7 +25,7 @@ class DirectoryListing {
     struct DirectoryDetails {
         uint8_t hasNext;
         uint16_t fileEntryCount;
-        FileEntry fileEntries[c_maxFileEntriesPerPage];
+        FileEntry fileEntries[c_maxFileEntriesPerSector];
     };
 
     static PathItem createPathItem(const char* path);

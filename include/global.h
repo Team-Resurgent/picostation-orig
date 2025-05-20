@@ -5,4 +5,4 @@
 #define MAX_FILE_LENGTH 260
 
 const size_t c_maxFilePathLength = 255;
-const size_t c_maxFileEntriesPerPage = 500;
+const size_t c_maxFileEntriesPerSector = 8;

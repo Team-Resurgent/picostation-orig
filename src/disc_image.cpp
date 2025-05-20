@@ -99,7 +99,7 @@ static void getParentPath(const TCHAR *path, TCHAR *parentPath) {
     }
 }
 
-void picostation::DiscImage::buildSector(const int sector, uint8_t *buffer, uint8_t *userData) {
+void picostation::DiscImage::buildSector(const int sector, uint8_t *buffer, uint8_t *userData, uint16_t userDataSize) {
     // Clear the buffer to avoid garbage data
     memset(buffer, 0, c_cdSamplesBytes);
 
@@ -125,7 +125,7 @@ void picostation::DiscImage::buildSector(const int sector, uint8_t *buffer, uint
     // buffer[22] = 0;                // Submode
     // buffer[23] = 0;                // Coding information
 
-    memcpy(buffer + 24, userData, 2324);
+    memcpy(buffer + 24, userData, userDataSize);
 
     // EDC/ECC - 4 bytes
     // compute_edcecc(buffer);
