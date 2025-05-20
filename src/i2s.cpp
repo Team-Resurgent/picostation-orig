@@ -33,8 +33,6 @@
 #else
 #define DEBUG_PRINT(...) while (0)
 #endif
-
-TCHAR target_Cues[MAX_CUES][c_maxFilePathLength + 1];
 picostation::DirectoryListing::DirectoryDetails directoryDetails;
 
 pseudoatomic<int> g_imageIndex;  // To-do: Implement a console side menu to select the cue file
@@ -123,7 +121,6 @@ int picostation::I2S::initDMA(const volatile void *read_addr, unsigned int trans
 #endif
 
     // this need to be moved to diskimage
-    memset(target_Cues, 0, sizeof(target_Cues));
     memset(&directoryDetails, 0, sizeof(directoryDetails));
     picostation::DirectoryListing::PathItem rootPath = picostation::DirectoryListing::createPathItem("/");
     picostation::DirectoryListing::getDirectoryEntries(rootPath, "", 0,  directoryDetails);
@@ -153,7 +150,7 @@ int picostation::I2S::initDMA(const volatile void *read_addr, unsigned int trans
             }
             printf("image changed! %d\n", loadedImageIndex);
             if (s_dataLocation == picostation::DiscImage::DataLocation::SDCard) {
-                g_discImage.load(target_Cues[imageIndex]);
+                g_discImage.load(directoryDetails.fileEntries[imageIndex].filePath.path);
                 printf("get from SD!\n");
             } else if (s_dataLocation == picostation::DiscImage::DataLocation::RAM) {
                 g_discImage.makeDummyCue();
@@ -184,8 +181,6 @@ int picostation::I2S::initDMA(const volatile void *read_addr, unsigned int trans
             if ((currentSector - c_leadIn - c_preGap == 100) && g_fileListingState.Load() == FileListingStates::GETDIRECTORY) {
 
                 g_fileListingState = FileListingStates::IDLE;
-
-                memset(&directoryDetails, 0, sizeof(directoryDetails));
 
                 g_discImage.buildSector(currentSector - c_leadIn, userData, (uint8_t*)&directoryDetails, sizeof(directoryDetails));
                 printf("Sector 100 load\n");
