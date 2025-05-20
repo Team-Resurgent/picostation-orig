@@ -20,7 +20,6 @@ class I2S {
   private:
     static constexpr std::array<uint16_t, 1176> generateScramblingLUT();
     int initDMA(const volatile void *read_addr, unsigned int transfer_count);  // Returns DMA channel number
-    void mountSDCard();
     void reset();
 
     pseudoatomic<int> m_sectorSending;

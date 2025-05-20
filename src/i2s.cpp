@@ -10,11 +10,12 @@
 #include <array>
 
 #include "cmd.h"
+#include "directory_listing.h"
 #include "disc_image.h"
 #include "drive_mechanics.h"
 #include "f_util.h"
 #include "ff.h"
-#include "filesystem.h"
+#include "global.h"
 #include "hardware/dma.h"
 #include "hardware/pio.h"
 #include "hw_config.h"
@@ -26,7 +27,6 @@
 #include "pseudo_atomics.h"
 #include "subq.h"
 #include "values.h"
-#include "global.h"
 
 #if DEBUG_I2S
 #define DEBUG_PRINT(...) printf(__VA_ARGS__)
@@ -34,13 +34,12 @@
 #define DEBUG_PRINT(...) while (0)
 #endif
 
-TCHAR target_Cues[MAX_CUES][c_fileNameLength];
+TCHAR target_Cues[MAX_CUES][c_maxFilePathLength];
 
 pseudoatomic<int> g_imageIndex;  // To-do: Implement a console side menu to select the cue file
 pseudoatomic<int> g_listingMode;
 
 picostation::DiscImage::DataLocation s_dataLocation = picostation::DiscImage::DataLocation::RAM;
-static FATFS s_fatFS;
 
 constexpr std::array<uint16_t, 1176> picostation::I2S::generateScramblingLUT() {
     std::array<uint16_t, 1176> cdScramblingLUT = {0};
@@ -66,62 +65,31 @@ constexpr std::array<uint16_t, 1176> picostation::I2S::generateScramblingLUT() {
     return cdScramblingLUT;
 }
 
-void picostation::I2S::mountSDCard() {
-    FRESULT fr = f_mount(&s_fatFS, "", 1);
-    if (FR_OK != fr) {
-        panic("f_mount error: %s (%d)\n", FRESULT_str(fr), fr);
-    }
-}
 const unsigned int c_userDataSize = 2324;
-uint8_t directoryListing[2352] = {0};
 uint8_t directoryBuffer[2352] = {0};
 uint8_t filteredCues[2352] = {0};
-picostation::FileSystem fileSystem;
 
-void parseLines(char *dataBuffer, char *filteredCues, TCHAR lines[MAX_LINES][MAX_LENGTH], int *lineCount) {
-    if (!dataBuffer) {
-        return;
-    }
+void parseLines(picostation::DirectoryListing::DirectoryDetails& directoryDetails, char *filteredCues, TCHAR lines[MAX_LINES][c_maxFilePathLength + 1], int& lineCount) {
 
-    *lineCount = 0;
-    char *start = dataBuffer;
-    char *end = dataBuffer;
+    lineCount = 0;
+    uint16_t currentLength = 0;
+    for (int i = 0; i < directoryDetails.fileEntryCount; i++) {
 
-    while (*start != '\0' && *lineCount < MAX_LINES) {
-        // Find the end of the line
-        while (*end != '\n' && *end != '\0') {
-            end++;
+        picostation::DirectoryListing::PathItem extension;
+        picostation::DirectoryListing::getExtension(directoryDetails.fileEntries[i].filePath, extension);
+        if (directoryDetails.fileEntries[i].isDirectory == 0 || strcasecmp(extension.path, ".cue") != 0)
+        {
+            continue;
         }
-
-        // Calculate length
-        int length = end - start;
-        if (length >= MAX_LENGTH) {
-            length = MAX_LENGTH - 1;
+        if (currentLength + strlen(directoryDetails.fileEntries[i].filePath.path) + 1 > 2351) // allow for null term
+        {
+            break;
         }
-        char cueBuffer[5] = "euc.";
-
-        char temp[MAX_LENGTH];
-        for (int i = 0; i < length; i++) {
-            temp[i] = start[length - 1 - i];
-        }
-        temp[length] = '\0';
-        if (temp[0] == cueBuffer[0] && temp[1] == cueBuffer[1] && temp[2] == cueBuffer[2] && temp[3] == cueBuffer[3]) {
-            for (int i = 0; i < length; i++) {
-                lines[*lineCount + 1][i] = start[i];
-            }
-            strncat(filteredCues, start, length);
-            strcat(filteredCues, "\n");
-
-            lines[*lineCount + 1][length] = '\0';  // Null-terminator add
-            printf("cue dosyası!= %s\n", lines[*lineCount + 1]);
-            (*lineCount)++;
-        }
-
-        // Next line
-        if (*end == '\n') {
-            end++;
-        }
-        start = end;
+        strcat(filteredCues, directoryDetails.fileEntries[i].filePath.path);
+        strcat(filteredCues, "\n");
+        strcpy(lines[lineCount], directoryDetails.fileEntries[i].filePath.path);
+        lines[lineCount][strlen(directoryDetails.fileEntries[i].filePath.path)] = '\0';
+        lineCount++;
     }
     printf("filteredCues!=\n %s\n", filteredCues);
 }
@@ -160,8 +128,6 @@ int picostation::I2S::initDMA(const volatile void *read_addr, unsigned int trans
     g_imageIndex = 0;
     g_listingMode = 0;
 
-    mountSDCard();
-
     int dmaChannel = initDMA(pioSamples[0], c_cdSamplesSize * 2);
 
     g_coreReady[1] = true;          // Core 1 is ready
@@ -181,12 +147,18 @@ int picostation::I2S::initDMA(const volatile void *read_addr, unsigned int trans
     unsigned sectorCount = 0;
     unsigned cacheHitCount = 0;
 #endif
-    fileSystem.readDirectoryToBuffer(directoryListing, "/", 0, c_userDataSize);
-    printf("directorylisting:\n%s", directoryListing);
 
-    char lines[MAX_LINES][MAX_LENGTH];
+    picostation::DirectoryListing::DirectoryDetails directoryDetails;
+    memset(&directoryDetails, 0, sizeof(directoryDetails));
+    picostation::DirectoryListing::PathItem rootPath = picostation::DirectoryListing::createPathItem("/");
+    picostation::DirectoryListing::getDirectoryEntries(rootPath, "", 0,  directoryDetails);
+    printf("Directorylisting Entry count: %i", directoryDetails.fileEntryCount);
+
+    char target_Cues[MAX_LINES][c_maxFilePathLength + 1];
+    memset(target_Cues, 0, sizeof(target_Cues));
+
     int lineCount = 0;
-    parseLines((char *)directoryListing, (char *)filteredCues, target_Cues, &lineCount);
+    parseLines(directoryDetails, (char *)filteredCues, target_Cues, lineCount);
 
     int firstboot = 1;
     while (true) {
@@ -293,9 +265,9 @@ int picostation::I2S::initDMA(const volatile void *read_addr, unsigned int trans
                 pioSamples[bufferForSDRead][i] = i2sData;
             }
 
-#if DEBUG_I2S
             loadedSector[bufferForSDRead] = currentSector;
             bufferForSDRead = (bufferForSDRead + 1) % 2;
+#if DEBUG_I2S
             endTime = time_us_64();
             totalTime = endTime - startTime;
             if (totalTime < shortestTime) {

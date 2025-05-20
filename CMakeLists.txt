@@ -103,7 +103,7 @@ target_sources(
     src/picostation.cpp
     src/subq.cpp
     src/utils.cpp
-    src/filesystem.cpp
+    src/directory_listing.cpp
     third_party/cueparser/cueparser.c
     third_party/cueparser/fileabstract.c
     third_party/cueparser/scheduler.c
