@@ -34,7 +34,7 @@
 #define DEBUG_PRINT(...) while (0)
 #endif
 
-TCHAR target_Cues[MAX_CUES][c_maxFilePathLength];
+TCHAR target_Cues[MAX_CUES][c_maxFilePathLength + 1];
 
 pseudoatomic<int> g_imageIndex;  // To-do: Implement a console side menu to select the cue file
 pseudoatomic<int> g_listingMode;
@@ -154,7 +154,6 @@ int picostation::I2S::initDMA(const volatile void *read_addr, unsigned int trans
     picostation::DirectoryListing::getDirectoryEntries(rootPath, "", 0,  directoryDetails);
     printf("Directorylisting Entry count: %i", directoryDetails.fileEntryCount);
 
-    char target_Cues[MAX_LINES][c_maxFilePathLength + 1];
     memset(target_Cues, 0, sizeof(target_Cues));
 
     int lineCount = 0;
