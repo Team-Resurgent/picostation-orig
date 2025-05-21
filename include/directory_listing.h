@@ -3,7 +3,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include <vector>
+#include "listingBuilder.h"
 
 #include "ff.h"
 #include "global.h"
@@ -32,7 +32,7 @@ class DirectoryListing {
     static void getExtension(const PathItem& filePath, PathItem& extension);
     static void getPathWithoutExtension(const PathItem& filePath, PathItem& newPath);
     static bool pathContainsFilter(const PathItem& filePath, const char* filter);
-    static bool getDirectoryEntries(const PathItem& filePath, const char* filter, const uint32_t page, DirectoryDetails& directoryDetails);
+    static bool getDirectoryEntries(const PathItem& filePath, const char* filter, const uint32_t page, listingBuilder* fileListing);
     
     // void setDirectory(const char *dir);
 };

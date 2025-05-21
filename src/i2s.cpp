@@ -27,13 +27,15 @@
 #include "pseudo_atomics.h"
 #include "subq.h"
 #include "values.h"
+#include "listingBuilder.h"
 
 #if DEBUG_I2S
 #define DEBUG_PRINT(...) printf(__VA_ARGS__)
 #else
 #define DEBUG_PRINT(...) while (0)
 #endif
-picostation::DirectoryListing::DirectoryDetails directoryDetails;
+
+listingBuilder* fileListing;
 
 pseudoatomic<int> g_imageIndex;  // To-do: Implement a console side menu to select the cue file
 pseudoatomic<int> g_listingMode;
@@ -120,11 +122,12 @@ int picostation::I2S::initDMA(const volatile void *read_addr, unsigned int trans
     unsigned cacheHitCount = 0;
 #endif
 
+
     // this need to be moved to diskimage
-    memset(&directoryDetails, 0, sizeof(directoryDetails));
+    fileListing = new listingBuilder();
     picostation::DirectoryListing::PathItem rootPath = picostation::DirectoryListing::createPathItem("/");
-    picostation::DirectoryListing::getDirectoryEntries(rootPath, "", 0,  directoryDetails);
-    printf("Directorylisting Entry count: %i", directoryDetails.fileEntryCount);
+    picostation::DirectoryListing::getDirectoryEntries(rootPath, "", 0,  fileListing);
+    //printf("Directorylisting Entry count: %i", directoryDetails.fileEntryCount);
 
     int firstboot = 1;
     while (true) {
@@ -150,7 +153,7 @@ int picostation::I2S::initDMA(const volatile void *read_addr, unsigned int trans
             }
             printf("image changed! %d\n", loadedImageIndex);
             if (s_dataLocation == picostation::DiscImage::DataLocation::SDCard) {
-                g_discImage.load(directoryDetails.fileEntries[imageIndex].filePath.path);
+                g_discImage.load(fileListing->getString(imageIndex));
                 printf("get from SD!\n");
             } else if (s_dataLocation == picostation::DiscImage::DataLocation::RAM) {
                 g_discImage.makeDummyCue();
@@ -182,7 +185,7 @@ int picostation::I2S::initDMA(const volatile void *read_addr, unsigned int trans
 
                 g_fileListingState = FileListingStates::IDLE;
 
-                g_discImage.buildSector(currentSector - c_leadIn, userData, (uint8_t*)&directoryDetails, sizeof(directoryDetails));
+                g_discImage.buildSector(currentSector - c_leadIn, userData, fileListing->getData(), 2324);
                 printf("Sector 100 load\n");
 
                 sectorData = reinterpret_cast<int16_t *>(userData);

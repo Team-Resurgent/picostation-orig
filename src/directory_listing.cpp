@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <vector>
+#include "listingBuilder.h"
 
 #include "f_util.h"
 #include "ff.h"
@@ -65,7 +65,7 @@ bool DirectoryListing::pathContainsFilter(const PathItem& filePath, const char* 
     return strstr(pathWithoutExtension.path, filter) != nullptr;
 }
 
-bool DirectoryListing::getDirectoryEntries(const PathItem& filePath, const char* filter, const uint32_t page, DirectoryDetails& directoryDetails) {
+bool DirectoryListing::getDirectoryEntries(const PathItem& filePath, const char* filter, const uint32_t offset, listingBuilder* fileListing) {
     DIR dir;
     FILINFO currentEntry;
     FILINFO nextEntry;
@@ -75,38 +75,43 @@ bool DirectoryListing::getDirectoryEntries(const PathItem& filePath, const char*
         return false;
     }
 
+    fileListing->clear();
+
+    uint32_t fileEntryCount = 0;
     uint32_t filesProcessed = 0;
-    directoryDetails.hasNext = 1;
-    directoryDetails.fileEntryCount = 0;
+    uint8_t hasNext = 1;
 
     res = f_readdir(&dir, &currentEntry);
     if (res == FR_OK && currentEntry.fname[0] != '\0') {
         res = f_readdir(&dir, &nextEntry);
         bool hasNext = (res == FR_OK && nextEntry.fname[0] != '\0');
         while (true) {
-            if (directoryDetails.fileEntryCount == c_maxFileEntriesPerSector) {
-                break;
-            }
             if (!(currentEntry.fattrib & AM_HID)) {
                 PathItem pathItem = createPathItem(currentEntry.fname);
                 if (pathContainsFilter(pathItem, filter)) {
-                    if ((filesProcessed / c_maxFileEntriesPerSector) >= page) {
-                        directoryDetails.fileEntries[directoryDetails.fileEntryCount].isDirectory = currentEntry.fattrib & AM_DIR ? 1 : 0;
-                        directoryDetails.fileEntries[directoryDetails.fileEntryCount].filePath = pathItem;
-                        directoryDetails.fileEntryCount++;
+                    if (filesProcessed >= offset) {
+                        //directoryDetails.fileEntries[directoryDetails.fileEntryCount].isDirectory = currentEntry.fattrib & AM_DIR ? 1 : 0;
+                        if (fileListing->addString(pathItem.path) == false)
+                        {
+                            break;
+                        }
+                        fileEntryCount++;
                     }
                     filesProcessed++;
                 }
             }
             if (!hasNext) {
-                directoryDetails.hasNext = 0;
+                hasNext = 0;
                 break;
             }
             currentEntry = nextEntry;
             res = f_readdir(&dir, &nextEntry);
             hasNext = (res == FR_OK && nextEntry.fname[0] != '\0');
         }
+
+
     }
+    fileListing->addTerminator(hasNext);
     f_closedir(&dir);
     return true;
 }
