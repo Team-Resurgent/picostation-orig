@@ -135,6 +135,7 @@ inline void picostation::MechCommand::customCommand(const uint32_t latched) {
             g_fileListingState = FileListingStates::GETDIRECTORY;
             break;
         case 0x2:
+        printf("disc image change: %x %x\n", subCommand, arg);
             g_imageIndex = arg;
             break;
         case 0xa:

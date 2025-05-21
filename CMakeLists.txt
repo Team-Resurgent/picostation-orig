@@ -39,6 +39,45 @@ project(${PROJECT_NAME})
 
 pico_sdk_init()
 
+function(addBinaryFileWithSize target name sizeName path)
+    set(asmFile "${PROJECT_BINARY_DIR}/includes/${target}_${name}.s")
+    cmake_path(ABSOLUTE_PATH path OUTPUT_VARIABLE fullPath)
+
+    file(
+        CONFIGURE
+        OUTPUT "${asmFile}"
+        CONTENT [[
+            .section .rodata.${name}, "a"
+            .balign 8
+
+            .global ${name}
+            .type ${name}, %object
+            .size ${name}, (${name}_end - ${name})
+
+            ${name}:
+                .incbin "${fullPath}"
+            ${name}_end:
+
+            .section .rodata.${sizeName}, "a"
+            .balign 4
+
+            .global ${sizeName}
+            .type ${sizeName}, %object
+            .size ${sizeName}, 4
+
+            ${sizeName}:
+                .int (${name}_end - ${name})
+        ]]
+        ESCAPE_QUOTES
+        NEWLINE_STYLE LF
+    )
+
+    target_sources(${target} PRIVATE "${asmFile}")
+    set_source_files_properties(
+        "${asmFile}" PROPERTIES OBJECT_DEPENDS "${fullPath}"
+    )
+endfunction()
+
 add_executable(${PROJECT_NAME})
 
 target_compile_definitions(
@@ -49,6 +88,8 @@ target_compile_definitions(
     PICO_XOSC_STARTUP_DELAY_MULTIPLIER=64
     MAXINDEX=2
 )
+
+addBinaryFileWithSize(${PROJECT_NAME} loaderImage loaderImageSize binary/picoloader.bin)
 
 target_sources(
     ${PROJECT_NAME} PRIVATE
@@ -62,6 +103,7 @@ target_sources(
     src/picostation.cpp
     src/subq.cpp
     src/utils.cpp
+    src/directory_listing.cpp
     third_party/cueparser/cueparser.c
     third_party/cueparser/fileabstract.c
     third_party/cueparser/scheduler.c

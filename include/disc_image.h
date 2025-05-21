@@ -22,7 +22,7 @@ class DiscImage {
         USBStorage,
     };
 
-    void buildSector(const int sector, uint8_t *buffer, uint8_t *userData);
+    void buildSector(const int sector, uint8_t *buffer, uint8_t *userData, uint16_t userDataSize = 2324);
     FRESULT load(const TCHAR *targetCue);
     SubQ::Data generateSubQ(const int sector);
     bool hasData() { return m_hasData; };
